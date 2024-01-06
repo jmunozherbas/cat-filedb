@@ -11,6 +11,16 @@ public class CatClass {
     private List<String> searchableFields;
     private Type typeClass;
 
+    public CatClass() {
+    }
+
+    public CatClass(String name, String fieldId, List<String> searchableFields, Type typeClass) {
+        this.name = name;
+        this.fieldId = fieldId;
+        this.searchableFields = searchableFields;
+        this.typeClass = typeClass;
+    }
+
     public String getName() {
         return name;
     }

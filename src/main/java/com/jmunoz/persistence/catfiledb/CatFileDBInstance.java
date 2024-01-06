@@ -21,7 +21,7 @@ public abstract class CatFileDBInstance {
 
     public abstract String getPathFolderDB();
 
-    private void initDB() throws IOException {
+    public void initDB() throws IOException {
         initClasses();
         initFiles();
     }
@@ -146,16 +146,18 @@ public abstract class CatFileDBInstance {
         return new String(readBytes);
     }
 
-    public boolean save(Object object, String className) throws IOException {
+    public boolean save(Object object, String className) throws IOException,CatException {
         CatClass catClass = HM_CLASSES.get(className);
         String strJsonObject = new Gson().toJson(object);
         JsonObject jsonObject = new Gson().fromJson(strJsonObject, JsonObject.class);
         if (jsonObject.get(catClass.getFieldId()) == null) {
             //TODO: manage if id is null
+            throw new CatException("NULL_ID_OBJECT");
         }
         List<CatRegister> list = getListCatRegister(className);
         if (list.contains(new CatRegister(jsonObject.get(catClass.getFieldId()).getAsString()))) {
             //TODO: manage if id is repeated
+            throw new CatException("EXISTS_ID_OBJECT");
         }
         CatRegister catRegister = writeObjectData(className, strJsonObject, jsonObject);
 

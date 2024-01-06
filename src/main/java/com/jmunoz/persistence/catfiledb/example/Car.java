@@ -65,4 +65,17 @@ public class Car {
     public void setMark(String mark) {
         this.mark = mark;
     }
+
+    @Override
+    public String toString() {
+        return "Car{" +
+                "serial='" + serial + '\'' +
+                ", plate='" + plate + '\'' +
+                ", color='" + color + '\'' +
+                ", year=" + year +
+                ", axis=" + axis +
+                ", model='" + model + '\'' +
+                ", mark='" + mark + '\'' +
+                '}';
+    }
 }
