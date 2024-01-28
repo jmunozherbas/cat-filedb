@@ -1,6 +1,7 @@
 package com.jmunoz.persistence.catfiledb;
 
 
+import com.google.gson.reflect.TypeToken;
 import com.jmunoz.persistence.catfiledb.example.Car;
 import org.junit.Test;
 
@@ -19,20 +20,21 @@ import static org.junit.Assert.assertTrue;
 public class AppTest {
 
     private static final String CLASS_NAME = "car";
-    private static final String PATH_DB = "D:" + File.separator + "Jorge" + File.separator + "mydb";
+    private static final String PATH_DB = "D:" + File.separator + "test" + File.separator + "mydb";
     private static final String SERIAL_TEST = "123456";
 
     private static CatFileDBInstance prepareInstanceDB() {
         CatFileDBInstance db = new CatFileDBInstance() {
             @Override
-            public List<CatClass> getListClasses() {
+            protected List<CatClass> getListClasses() {
                 List<CatClass> list = new ArrayList<>();
-                list.add(new CatClass(CLASS_NAME, "serial", new ArrayList<String>(), Car.class));
+                list.add(new CatClass(CLASS_NAME, "serial", Car.class, new TypeToken<ArrayList<Car>>() {
+                }.getType()));
                 return list;
             }
 
             @Override
-            public String getPathFolderDB() {
+            protected String getPathFolderDB() {
                 return PATH_DB;
             }
         };
@@ -75,20 +77,21 @@ public class AppTest {
             car.setYear(1998);
             result = db.save(car, CLASS_NAME);
         } catch (Exception e) {
-            if (e instanceof CatException && e.getMessage().equals("EXISTS_ID_OBJECT")) {
+            if (e instanceof CatException && ((CatException) e).getCodeException().equals(CatFileDB.Exception.DB_UNIQUE_ID_VIOLATED)) {
                 result = true;
             }
         }
         assertTrue(result);
 
-        try{
+        try {
             CatFileDBInstance db = prepareInstanceDB();
             db.initDB();
             System.out.println("Find by id : " + SERIAL_TEST);
             Car car1 = (Car) db.findById(CLASS_NAME, SERIAL_TEST);
             System.out.println(car1);
             assertNotNull(car1);
-        } catch (Exception e){}
+        } catch (Exception e) {
+        }
 
     }
 

@@ -1,6 +1,7 @@
 package com.jmunoz.persistence.catfiledb;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
@@ -16,213 +17,217 @@ import java.util.List;
 public abstract class CatFileDBInstance {
 
     private static HashMap<String, CatClass> HM_CLASSES = null;
+    private static HashMap<String, List<JsonObject>> HM_DATA_CLASS = null;
+    private static HashMap<String, List<String>> HM_KEYS_DATA_CLASS = null;
+    private static HashMap<String, Integer> HM_LAST_INDEX_CLASS = null;
+    private static HashMap<String, Long> HM_LENGTH_BYTES_DATA_CLASS = null;
+    private static HashMap<String, Long> HM_LENGTH_BYTES_DATA_DELETED_CLASS = null;
+    private CatSession CAT_SESSION;
 
-    public abstract List<CatClass> getListClasses();
+    protected abstract List<CatClass> getListClasses();
 
-    public abstract String getPathFolderDB();
+    protected abstract String getPathFolderDB();
 
-    public void initDB() throws IOException {
+    public void initDB() throws CatException {
+        if (!CatFileManager.initDataBaseFiles(getPathFolderDB(), getListClasses())) {
+            System.out.println("Database Files can't be created.");
+            return;
+        }
         initClasses();
-        initFiles();
     }
 
-    private void initClasses() {
+    private void initClasses() throws CatException {
         HM_CLASSES = new HashMap<>();
+        HM_DATA_CLASS = new HashMap<>();
+        HM_KEYS_DATA_CLASS = new HashMap<>();
+        HM_LAST_INDEX_CLASS = new HashMap<>();
+        HM_LENGTH_BYTES_DATA_CLASS = new HashMap<>();
+        HM_LENGTH_BYTES_DATA_DELETED_CLASS = new HashMap<>();
+
         for (CatClass catClass : getListClasses()) {
             HM_CLASSES.put(catClass.getName(), catClass);
+            readClassDataFromFile(catClass.getName());
         }
     }
 
-    private void initFiles() throws IOException {
-        /** Find or create folder for catDB files **/
-        findOrCreateFolder(getPathFolderDB());
-
-        /** Find or create each file, register and data for cat classes **/
-        for (CatClass catClass : HM_CLASSES.values()) {
-            String registerFilename = "reg_" + catClass.getName() + ".cat";
-            File fileRegClass = findOrCreateFile(getPathFolderDB(), registerFilename);
-
-            String data1Filename = "data_" + catClass.getName() + "1.cat";
-            findOrCreateFile(getPathFolderDB(), data1Filename);
-        }
-
-        /** Find or create file register and folder for file storing **/
-        findOrCreateFolder(getPathFolderDB() + File.separator + "filestoring");
-        findOrCreateFile(getPathFolderDB(), "reg_filestoringcatdb.cat");
-        findOrCreateFile(getPathFolderDB(), "data_filestoringcatdb1.cat");
+    private String getPathFileDataClass(String className) {
+        return getPathFolderDB() + File.separator + "data_" + className + ".cat";
     }
 
-    private void findOrCreateFolder(String pathFolder) throws IOException {
-        File baseFolder = new File(pathFolder);
+    private String getPathFileDeleteDataClass(String className) {
+        return getPathFolderDB() + File.separator + "del_" + className + ".cat";
+    }
 
-        /** If folder path doesn't exists, then create the folder **/
-        if (!baseFolder.exists()) {
-            if (!baseFolder.mkdir()) {
-                /** If folder can't be created, TODO **/
+    private List<JsonObject> stringContentAsListObjects(String strContent, String className) {
+        return new Gson().fromJson(strContent, new TypeToken<ArrayList<JsonObject>>() {
+        }.getType());
+    }
+
+    private void readClassDataFromFile(String className) throws CatException {
+        try {
+            if (!HM_DATA_CLASS.containsKey(className)) {
+
+                byte[] byteDataClass = CatFileManager.readFileFull(getPathFileDataClass(className));
+                String content = "[" + new String(byteDataClass) + "]";
+                HM_LENGTH_BYTES_DATA_CLASS.put(className, (long) byteDataClass.length);
+
+                byte[] byteDataDeletedClass = CatFileManager.readFileFull(getPathFileDeleteDataClass(className));
+                String contentDel = "[" + new String(byteDataDeletedClass) + "]";
+                HM_LENGTH_BYTES_DATA_DELETED_CLASS.put(className, (long) byteDataDeletedClass.length);
+                Type type = new TypeToken<ArrayList<Integer>>() {
+                }.getType();
+
+                List<Integer> listIndexDeleted = (List<Integer>) new Gson().fromJson(contentDel, type);
+                List<JsonObject> listObjects = stringContentAsListObjects(content, className);
+                HM_LAST_INDEX_CLASS.put(className, listObjects.size());
+
+                List<JsonObject> resultData = new ArrayList<>();
+                List<String> keysData = new ArrayList<>();
+                for (int i = 0; i < listObjects.size(); i++) {
+                    if (!listIndexDeleted.contains(i)) {
+                        listObjects.get(i).addProperty("idxCat", i);
+                        resultData.add(listObjects.get(i));
+                        keysData.add(listObjects.get(i).get(HM_CLASSES.get(className).getFieldId()).getAsString());
+                    }
+                }
+
+                listObjects.clear();
+                listIndexDeleted.clear();
+
+                HM_DATA_CLASS.put(className, resultData);
+                HM_KEYS_DATA_CLASS.put(className, keysData);
+
             } else {
-                System.out.println("Folder was created: " + pathFolder);
+                File _file = new File(getPathFileDataClass(className));
+                if (_file.length() > HM_LENGTH_BYTES_DATA_CLASS.get(className)) {
+                    byte[] readBytes = CatFileManager.readFileSection(_file.getPath(), HM_LENGTH_BYTES_DATA_CLASS.get(className), _file.length());
+                    String strNewContentData = "[" + new String(readBytes) + "]";
+                    HM_LENGTH_BYTES_DATA_CLASS.put(className, _file.length());
+
+                    List<JsonObject> listObjects = stringContentAsListObjects(strNewContentData, className);
+                    for (int i = 0; i < listObjects.size(); i++) {
+                        listObjects.get(i).addProperty("idxCat", HM_LAST_INDEX_CLASS.get(className) + i);
+                        HM_DATA_CLASS.get(className).add(listObjects.get(i));
+                        HM_KEYS_DATA_CLASS.get(className).add(listObjects.get(i).get(HM_CLASSES.get(className).getFieldId()).getAsString());
+                    }
+
+                    HM_LAST_INDEX_CLASS.put(className, HM_LAST_INDEX_CLASS.get(className) + listObjects.size());
+                }
+
+                File _fileDel = new File(getPathFileDeleteDataClass(className));
+                if (_fileDel.length() > HM_LENGTH_BYTES_DATA_DELETED_CLASS.get(className)) {
+                    byte[] readBytes = CatFileManager.readFileSection(_fileDel.getPath(), HM_LENGTH_BYTES_DATA_DELETED_CLASS.get(className), _fileDel.length());
+                    String strNewContentDel = "[" + new String(readBytes) + "]";
+                    HM_LENGTH_BYTES_DATA_DELETED_CLASS.put(className, _fileDel.length());
+                    Type type = new TypeToken<ArrayList<Integer>>() {
+                    }.getType();
+
+                    List<Integer> listIndexDeleted = (List<Integer>) new Gson().fromJson(strNewContentDel, type);
+                    for (Integer indexToDelete : listIndexDeleted) {
+                        int indexMen = getMemIndex(className, indexToDelete);
+                        if (indexMen >= 0) {
+                            HM_DATA_CLASS.get(className).remove(indexMen);
+                            HM_KEYS_DATA_CLASS.get(className).remove(indexMen);
+                        } else {
+                            System.out.println("Index can't be removed from list objects of class : " + className + " indexFile : " + indexToDelete);
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new CatException(CatFileDB.Exception.DB_FILE_MANAGING, "Error reading class data from file : " + className);
+        }
+    }
+
+    private int getMemIndex(String className, int indexFile) {
+        return findListObject(className, indexFile, 0, HM_DATA_CLASS.get(className).size());
+    }
+
+    private int findListObject(String className, int valueIndexTofind, int iLeft, int iRight) {
+        if (HM_DATA_CLASS.get(className).subList(iLeft, iRight).size() == 1) {
+            if (HM_DATA_CLASS.get(className).get(iLeft).get("idxCat").getAsInt() == valueIndexTofind) {
+                return iLeft;
             }
         } else {
-            System.out.println("Folder was found: " + pathFolder);
+            List<JsonObject> objectList = HM_DATA_CLASS.get(className).subList(iLeft, iRight);
+            int midIndex = midIndexList(objectList.size());
+            int midPositionValue = objectList.get(midIndex).get("idxCat").getAsInt();
+            if (midPositionValue == valueIndexTofind) {
+                return iLeft + midIndex;
+            } else if (midPositionValue < valueIndexTofind) {
+                return findListObject(className, valueIndexTofind, iLeft + midIndex, iRight);
+            } else {
+                return findListObject(className, valueIndexTofind, iLeft, iRight - midIndex);
+            }
         }
+        return -1;
     }
 
-    private File findOrCreateFile(String pathFolder, String fileName) throws IOException {
-        File _file = new File(pathFolder + File.separator + fileName);
-        /** If file doesn't exists, then create **/
-        if (!_file.exists()) {
-            if (!_file.createNewFile()) {
-                /** If file can't be created, TODO **/
-            } else {
-                System.out.println("File was created: " + fileName);
-            }
+    private int midIndexList(int size) {
+        if (size % 2 == 0) {
+            return size / 2;
         } else {
-            System.out.println("File was found: " + fileName);
+            return ((size + 1) / 2) - 1;
         }
-        return _file;
     }
 
-    private int indexNextClassFile(String className) throws IOException {
-        int index = 1;
-        while (index < CatFileDB.MAX_QUANTITY_FILES_CLASS) {
-            File _file = findOrCreateFile(getPathFolderDB(), "data_" + className + index + ".cat");
-            if (_file.length() < CatFileDB.MAX_LENGTH_FILE_CLASS) {
-                break;
-            } else {
-                index++;
-            }
-        }
-        return index;
-    }
-
-    private CatRegister writeObjectData(String className, String strJsonObject, String idValue) throws IOException {
-
-        /** Write the object to the end of the file **/
-        int indexFile = indexNextClassFile(className);
-        File _file = new File(getPathFolderDB() + File.separator + "data_" + className + indexFile + ".cat");
-        RandomAccessFile fileAccess = new RandomAccessFile(_file.getPath(), "rw");
-        long lenghtFile = _file.length();
-        String separator = "";
-        if (lenghtFile > 0) {
-            separator = ",";
-        }
-        fileAccess.seek(lenghtFile);
-        long indexRegister = lenghtFile + separator.getBytes().length;
-
-        byte[] bytesToWrite = (separator + strJsonObject).getBytes();
-        fileAccess.write(bytesToWrite);
-        fileAccess.close();
-
-        /** Create Register of the Object **/
-        CatRegister catRegister = new CatRegister();
-        catRegister.setIndexFirstByte(indexRegister);
-        catRegister.setLength(bytesToWrite.length - separator.getBytes().length);
-        catRegister.setRegisterFieldId(idValue);
-        catRegister.setSearchableFieldList(new ArrayList<CatSearchableField>());//TODO load searchable fields
-        catRegister.setFileIndex(indexFile);
-
-        File _fileReg = new File(getPathFolderDB() + File.separator + "reg_" + className + ".cat");
-        RandomAccessFile fileAccessReg = new RandomAccessFile(_fileReg.getPath(), "rw");
-        String separator2 = "";
-        if (_fileReg.length() > 0) {
-            separator2 = ",";
-        }
-        fileAccessReg.seek(_fileReg.length());
-        fileAccessReg.write((separator2 + new Gson().toJson(catRegister)).getBytes());
-        fileAccessReg.close();
-
-        return catRegister;
-    }
-
-    private String readObjectData(CatRegister register, String className) throws IOException {
-        File _file = new File(getPathFolderDB() + File.separator + "data_" + className + register.getFileIndex() + ".cat");
-        RandomAccessFile fileAccess = new RandomAccessFile(_file.getPath(), "r");
-        fileAccess.seek(register.getIndexFirstByte());
-        Long lengthRegister = register.getLength();
-        byte[] readBytes = new byte[lengthRegister.intValue()];
-        fileAccess.readFully(readBytes);
-        fileAccess.close();
-        return new String(readBytes);
-    }
-
-    private CatRegister findCatRegister(String className, String idObject) throws IOException {
-        List<CatRegister> list = getListCatRegister(className);
-        int pos = list.indexOf(new CatRegister(idObject));
-        return list.get(pos);
-    }
-
-    private List<CatRegister> getListCatRegister(String className) throws IOException {
-        String contentReg = CatFileDB.readFileString(getPathFolderDB() + File.separator + "reg_" + className + ".cat");
-        Type listType = new TypeToken<ArrayList<CatRegister>>() {
-        }.getType();
-        return new Gson().fromJson("[" + contentReg + "]", listType);
-    }
-
-    private String validateToSave(JsonObject jsonObject, String className) throws IOException, CatException {
+    private String validateToSave(JsonObject jsonObject, String className) throws CatException {
         CatClass catClass = HM_CLASSES.get(className);
         if (catClass == null) {
             //TODO: manage if catClass is null
-            throw new CatException("NULL_CAT_CLASS");
+            throw new CatException(CatFileDB.Exception.DB_PROCESSING, "class not found or null " + className);
         }
 
         JsonElement elementIdObject = jsonObject.get(catClass.getFieldId());
         if (elementIdObject == null) {
             //TODO: manage if id is null
-            throw new CatException("NULL_ID_OBJECT");
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object not found or null " + className + " " + catClass.getFieldId());
         }
 
         String strIdObject = elementIdObject.getAsString();
         if (strIdObject.isEmpty()) {
             //TODO: manage if id is empty
-            throw new CatException("EMPTY_ID_OBJECT");
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object empty " + className + " " + catClass.getFieldId());
         }
 
-        List<CatRegister> list = getListCatRegister(catClass.getName());
-        if (list.contains(new CatRegister(strIdObject))) {
+        if (HM_KEYS_DATA_CLASS.get(className).contains(strIdObject)) {
             //TODO: manage if id is repeated
-            throw new CatException("EXISTS_ID_OBJECT");
+            throw new CatException(CatFileDB.Exception.DB_UNIQUE_ID_VIOLATED, "Id object already exists, unique id violated " + className + " " + catClass.getFieldId() + " --> " + strIdObject);
         }
 
         return strIdObject;
     }
 
-    public boolean save(Object object, String className) throws IOException, CatException {
+    public boolean save(Object object, String className) throws CatException {
         String strJsonObject = new Gson().toJson(object);
-        JsonObject jsonObject = new Gson().fromJson(strJsonObject, JsonObject.class);
-        String strIdObject = validateToSave(jsonObject, className);
-        CatRegister catRegister = writeObjectData(className, strJsonObject, strIdObject);
-
-        return catRegister != null;
+        return saveJsonString(strJsonObject, className);
     }
 
-    public boolean saveJson(String strJson, String className) throws IOException, CatException {
-        JsonObject jsonObject = new Gson().fromJson(strJson, JsonObject.class);
-        String strIdObject = validateToSave(jsonObject, className);
-        CatRegister catRegister = writeObjectData(className, strJson, strIdObject);
-
-        return catRegister != null;
-    }
-
-    public Object findById(String className, String idObject) throws IOException {
-        CatRegister catRegister = findCatRegister(className, idObject);
-        CatClass catClass = HM_CLASSES.get(className);
-        String content = readObjectData(catRegister, className);
-        return new Gson().fromJson(content, catClass.getTypeClass());
-    }
-
-    public String findJsonById(String className, String idObject) throws IOException {
-        CatRegister catRegister = findCatRegister(className, idObject);
-        String content = readObjectData(catRegister, className);
-        return content;
-    }
-
-    public List<Object> findBySearchableFields(String className, List<CatSearchableField> listSearchFields) throws IOException {
-        List<CatRegister> list = getListCatRegister(className);
-        List<Object> listResult = new ArrayList<>();
-        for (CatRegister catRegister : list) {
-
+    public boolean saveJsonString(String strJsonObject, String className) throws CatException{
+        try {
+            JsonObject jsonObject = new Gson().fromJson(strJsonObject, JsonObject.class);
+            String strIdObject = validateToSave(jsonObject, className);
+            CatFileManager.writeAppendContent(strJsonObject, getPathFileDataClass(className));
+            return true;
+        } catch (CatException e) {
+            System.out.println("Object can't be inserted,  class : " + className + " strObj : " + strJsonObject + " " + e.getMessage());
+            throw e;
         }
-        return null;
+    }
+
+    public Object findById(String className, String idObject) throws CatException {
+        return new Gson().fromJson(findJsonById(className, idObject), HM_CLASSES.get(className).getTypeClass());
+    }
+
+    public JsonObject findJsonById(String className, String idObject) throws CatException {
+        readClassDataFromFile(className);
+        int indexById = HM_KEYS_DATA_CLASS.get(className).indexOf(idObject);
+        if (indexById >= 0) {
+            return HM_DATA_CLASS.get(className).get(indexById);
+        } else {
+            System.out.println("Object not found class: " + className + " id : " + idObject);
+            return null;
+        }
     }
 
 }

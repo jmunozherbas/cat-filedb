@@ -12,35 +12,39 @@ public class CatFileDB {
     public static final long MAX_LENGTH_FILE_CLASS = 5242880L;
     public static final int MAX_QUANTITY_FILES_CLASS = 100;
 
-    public static final byte TYPE_VALUE_INT = 1;
-    public static final byte TYPE_VALUE_STRING = 2;
-    public static final byte TYPE_VALUE_LONG = 3;
-    public static final byte TYPE_VALUE_DOUBLE = 4;
-    public static final byte TYPE_VALUE_BOOLEAN = 5;
+    public static class StatusTransactionSession {
+        public static final byte PENDING = 1;
+        public static final byte PROGRESS = 2;
+        public static final byte CANCELLED = 3;
+    }
 
-    public static final CatFileDBInstance findOrCreateInstance(String pathFolderDB, List<CatClass> includedObjects){
+    public static class TypeValueFields {
+        public static final byte TYPE_VALUE_INT = 1;
+        public static final byte TYPE_VALUE_STRING = 2;
+        public static final byte TYPE_VALUE_LONG = 3;
+        public static final byte TYPE_VALUE_DOUBLE = 4;
+        public static final byte TYPE_VALUE_BOOLEAN = 5;
+    }
+
+    public static class TypeTransaction {
+        public static final byte SELECT = 0;
+        public static final byte INSERT = 1;
+        public static final byte UPDATE = 2;
+        public static final byte DELETE = 3;
+    }
+
+    public static class Exception {
+        public static final String DB_FILE_MANAGING = "FILE_MANAGING";
+        public static final String DB_PARSING = "PARSING";
+        public static final String DB_TRANSACTION = "TRANSACTION";
+        public static final String DB_PROCESSING = "PROCESSING";
+        public static final String DB_UNIQUE_ID_VIOLATED = "UNIQUE_ID_VIOLATED";
+    }
+
+    public static final CatFileDBInstance findOrCreateInstance(String pathFolderDB, List<CatClass> includedObjects) {
 
         return null;
     }
 
-//
-//    private static CatObject readObject(CatRegister register) throws  IOException{
-//        File f1 = new File(register.getFileName());
-//        RandomAccessFile archivo2 = new RandomAccessFile(path, "r");
-//        archivo2.seek(f1.length()-lengthBytes);
-//        byte[] readBytes = new byte[lengthBytes];
-//        archivo2.readFully(readBytes);
-//        archivo2.close();
-//        String result = new String(readBytes);
-//    }
-
-    public static synchronized String readFileString(String filePath) throws IOException {
-        return new String(Files.readAllBytes(Paths.get(filePath)));
-    }
-
-    public static synchronized boolean writeFileString(String filePath, String content) throws IOException {
-        Path pathResult = Files.write(Paths.get(filePath), content.getBytes());
-        return pathResult!=null;
-    }
 
 }

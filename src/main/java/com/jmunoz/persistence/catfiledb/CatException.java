@@ -2,11 +2,20 @@ package com.jmunoz.persistence.catfiledb;
 
 public class CatException extends Exception {
 
-    public CatException(String message) {
+    private String codeException;
+
+    public CatException(String codeException, String message) {
         super(message);
+        this.codeException = codeException;
     }
 
-    public CatException(String message, Throwable cause) {
+    public CatException(String codeException, String message, Throwable cause) {
         super(message, cause);
+        this.codeException = codeException;
     }
+
+    public String getCodeException() {
+        return codeException;
+    }
+
 }
