@@ -203,7 +203,54 @@ public abstract class CatFileDBInstance {
         return strIdObject;
     }
 
-    private void removeNoPrimitiveValues(JsonObject jsonObject) {
+    private int validateToUpdate(JsonObject jsonObject, String className) throws CatException {
+        CatClass catClass = HM_CLASSES.get(className);
+        if (catClass == null) {
+            throw new CatException(CatFileDB.Exception.DB_PROCESSING, "class not found or null " + className);
+        }
+
+        JsonElement elementIdObject = jsonObject.get(catClass.getFieldId());
+        if (elementIdObject == null) {
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object not found or null " + className + " " + catClass.getFieldId());
+        }
+
+        String strIdObject = elementIdObject.getAsString();
+        if (strIdObject.isEmpty()) {
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object empty " + className + " " + catClass.getFieldId());
+        }
+        if (!elementIdObject.isJsonPrimitive()) {
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object needs to be a primitive value (integer,string,long)  in class:" + className + " " + catClass.getFieldId());
+        }
+
+        int indexMemoryObject = HM_KEYS_DATA_CLASS.get(className).indexOf(strIdObject);
+        if (indexMemoryObject < 0) {
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "IdObject not found class: " + className + " id : " + strIdObject);
+        }
+
+        return indexMemoryObject;
+    }
+
+    private int validateToDelete(String strIdObject, String className) throws CatException {
+        CatClass catClass = HM_CLASSES.get(className);
+        if (catClass == null) {
+            throw new CatException(CatFileDB.Exception.DB_PROCESSING, "class not found or null " + className);
+        }
+
+        if (strIdObject.isEmpty()) {
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object empty " + className + " " + catClass.getFieldId());
+        }
+        int indexMemoryObject = HM_KEYS_DATA_CLASS.get(className).indexOf(strIdObject);
+        if (indexMemoryObject < 0) {
+            throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "IdObject not found class: " + className + " id : " + strIdObject);
+        }
+
+        return indexMemoryObject;
+    }
+
+    private void removeNoPrimitiveValues(JsonObject jsonObject, String className) {
+        if (HM_CLASSES.get(className).isSaveNoPrimitiveData()) {
+            return;
+        }
         Iterator var2 = jsonObject.entrySet().iterator();
         List<String> toRemove = new ArrayList<>();
         while (var2.hasNext()) {
@@ -239,7 +286,7 @@ public abstract class CatFileDBInstance {
         try {
             JsonObject jsonObject = new Gson().fromJson(strJsonObject, JsonObject.class);
             String strIdObject = validateToSave(jsonObject, className);
-            removeNoPrimitiveValues(jsonObject);
+            removeNoPrimitiveValues(jsonObject, className);
             CatFileManager.writeAppendContent(jsonObject.getAsString(), getPathFileDataClass(className));
             return true;
         } catch (CatException e) {
@@ -297,6 +344,32 @@ public abstract class CatFileDBInstance {
 
     public List<JsonObject> listAllObjects(String className) {
         return HM_DATA_CLASS.get(className);
+    }
+
+    public boolean deleteById(String strIdObject, String className) throws CatException {
+        updateClassDataFromFile(className);
+        int indexMemoryObject = validateToDelete(strIdObject, className);
+        String indexRealObject = HM_DATA_CLASS.get(className).get(indexMemoryObject).get("idxCat").getAsString();
+        boolean result = CatFileManager.writeAppendContent(indexRealObject, getPathFileDeleteDataClass(className));
+        return result;
+    }
+
+    public boolean updateObject(Object obj, String className) throws CatException {
+        JsonObject jsonObject = new Gson().fromJson(new Gson().toJson(obj), JsonObject.class);
+        return updateJsonObject(jsonObject, className);
+    }
+
+    public boolean updateJsonObject(JsonObject jsonObject, String className) throws CatException {
+        updateClassDataFromFile(className);
+        int indexMemoryObject = validateToUpdate(jsonObject, className);
+        removeNoPrimitiveValues(jsonObject, className);
+        String indexRealObject = HM_DATA_CLASS.get(className).get(indexMemoryObject).get("idxCat").getAsString();
+        boolean resultDelete = CatFileManager.writeAppendContent(indexRealObject, getPathFileDeleteDataClass(className));
+        if (resultDelete) {
+            return CatFileManager.writeAppendContent(jsonObject.getAsString(), getPathFileDataClass(className));
+        } else {
+            throw new CatException(CatFileDB.Exception.DB_PROCESSING, "Failed to Delete in Update process - class: " + className + " jsonObj : " + jsonObject);
+        }
     }
 
 }

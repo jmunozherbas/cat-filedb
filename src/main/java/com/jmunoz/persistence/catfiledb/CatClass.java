@@ -7,17 +7,17 @@ public class CatClass {
 
     private String name;
     private String fieldId;
+    private boolean saveNoPrimitiveData;
     private Type typeClass;
-    private Type typeClassList;
 
     public CatClass() {
     }
 
-    public CatClass(String name, String fieldId, Type typeClass, Type typeClassList) {
+    public CatClass(String name, String fieldId, boolean saveNoPrimitiveData, Type typeClass) {
         this.name = name;
         this.fieldId = fieldId;
+        this.saveNoPrimitiveData = saveNoPrimitiveData;
         this.typeClass = typeClass;
-        this.typeClassList = typeClassList;
     }
 
     public String getName() {
@@ -44,12 +44,12 @@ public class CatClass {
         this.typeClass = typeClass;
     }
 
-    public Type getTypeClassList() {
-        return typeClassList;
+    public boolean isSaveNoPrimitiveData() {
+        return saveNoPrimitiveData;
     }
 
-    public void setTypeClassList(Type typeClassList) {
-        this.typeClassList = typeClassList;
+    public void setSaveNoPrimitiveData(boolean saveNoPrimitiveData) {
+        this.saveNoPrimitiveData = saveNoPrimitiveData;
     }
 
     @Override

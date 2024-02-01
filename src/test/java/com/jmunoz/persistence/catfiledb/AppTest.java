@@ -31,8 +31,7 @@ public class AppTest {
             @Override
             protected List<CatClass> getListClasses() {
                 List<CatClass> list = new ArrayList<>();
-                list.add(new CatClass(CLASS_NAME, "serial", Car.class, new TypeToken<ArrayList<Car>>() {
-                }.getType()));
+                list.add(new CatClass(CLASS_NAME, "serial", false, Car.class));
                 return list;
             }
 
