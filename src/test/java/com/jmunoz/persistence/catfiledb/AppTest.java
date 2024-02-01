@@ -1,8 +1,11 @@
 package com.jmunoz.persistence.catfiledb;
 
 
+import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import com.jmunoz.persistence.catfiledb.example.Car;
+import com.jmunoz.persistence.catfiledb.search.CatFilter;
+import com.jmunoz.persistence.catfiledb.search.builder.FilterIntegerBuilder;
 import org.junit.Test;
 
 import java.io.File;
@@ -92,6 +95,26 @@ public class AppTest {
             assertNotNull(car1);
         } catch (Exception e) {
         }
+
+    }
+
+    @Test
+    public void test03FilterJsonObjects() {
+        boolean result = false;
+        try {
+            CatFileDBInstance db = prepareInstanceDB();
+            db.initDB();
+            List<CatFilter> filters = new ArrayList<>();
+            filters.add(new FilterIntegerBuilder("year").equalTo(1998).build());
+            List<JsonObject> list = db.filterJsonObjects("car", filters);
+            System.out.println(list);
+            result = true;
+        } catch (Exception e) {
+            if (e instanceof CatException && ((CatException) e).getCodeException().equals(CatFileDB.Exception.DB_UNIQUE_ID_VIOLATED)) {
+                result = true;
+            }
+        }
+        assertTrue(result);
 
     }
 

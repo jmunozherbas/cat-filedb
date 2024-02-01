@@ -1,29 +1,13 @@
 package com.jmunoz.persistence.catfiledb;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
-
 public class CatFileDB {
 
-
     public static final long MAX_LENGTH_FILE_CLASS = 5242880L;
-    public static final int MAX_QUANTITY_FILES_CLASS = 100;
 
     public static class StatusTransactionSession {
         public static final byte PENDING = 1;
         public static final byte PROGRESS = 2;
         public static final byte CANCELLED = 3;
-    }
-
-    public static class TypeValueFields {
-        public static final byte TYPE_VALUE_INT = 1;
-        public static final byte TYPE_VALUE_STRING = 2;
-        public static final byte TYPE_VALUE_LONG = 3;
-        public static final byte TYPE_VALUE_DOUBLE = 4;
-        public static final byte TYPE_VALUE_BOOLEAN = 5;
     }
 
     public static class TypeTransaction {
@@ -40,11 +24,5 @@ public class CatFileDB {
         public static final String DB_PROCESSING = "PROCESSING";
         public static final String DB_UNIQUE_ID_VIOLATED = "UNIQUE_ID_VIOLATED";
     }
-
-    public static final CatFileDBInstance findOrCreateInstance(String pathFolderDB, List<CatClass> includedObjects) {
-
-        return null;
-    }
-
 
 }

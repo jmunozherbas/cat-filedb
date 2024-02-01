@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.zip.Deflater;
 import java.util.zip.GZIPOutputStream;
@@ -66,6 +67,6 @@ public class App
 
         String jsonArray = "{\"fi\":1,\"ib\":0,\"le\":114,\"id\":\"1704512006399\",\"sl\":[]},{\"fi\":1,\"ib\":115,\"le\":107,\"id\":\"123456\",\"sl\":[]},{\"fi\":1,\"ib\":223,\"le\":114,\"id\":\"1704512011179\",\"sl\":[]},{\"fi\":1,\"ib\":338,\"le\":114,\"id\":\"1704559893354\",\"sl\":[]},{\"fi\":1,\"ib\":453,\"le\":114,\"id\":\"1704559925143\",\"sl\":[]}";
 
-
+        System.out.println(new Gson().toJson(new Date()));
     }
 }
