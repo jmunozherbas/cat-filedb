@@ -44,7 +44,7 @@ public class FilterStringBuilder implements FilterBuilder {
         StringSearchCriteria isc = new StringSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return getMainValue().startsWith(getString(catFilter.getPropertyName(), jsonObject));
+                return getString(catFilter.getPropertyName(), jsonObject).startsWith(getMainValue());
             }
         };
         isc.setMainValue(value);
@@ -56,7 +56,7 @@ public class FilterStringBuilder implements FilterBuilder {
         StringSearchCriteria isc = new StringSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return getMainValue().endsWith(getString(catFilter.getPropertyName(), jsonObject));
+                return getString(catFilter.getPropertyName(), jsonObject).endsWith(getMainValue());
             }
         };
         isc.setMainValue(value);
@@ -68,7 +68,7 @@ public class FilterStringBuilder implements FilterBuilder {
         StringSearchCriteria isc = new StringSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return getMainValue().contains(getString(catFilter.getPropertyName(), jsonObject));
+                return getString(catFilter.getPropertyName(), jsonObject).contains(getMainValue());
             }
         };
         isc.setMainValue(value);

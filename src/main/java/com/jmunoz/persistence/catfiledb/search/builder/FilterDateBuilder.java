@@ -57,7 +57,7 @@ public class FilterDateBuilder implements FilterBuilder {
         DateSearchCriteria isc = new DateSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return valueDate_yyyyMMdd(getMainValue()) > valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject));
+                return valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject)) > valueDate_yyyyMMdd(getMainValue());
             }
         };
         isc.setMainValue(value);
@@ -69,7 +69,7 @@ public class FilterDateBuilder implements FilterBuilder {
         DateSearchCriteria isc = new DateSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return valueDate_yyyyMMdd(getMainValue()) >= valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject));
+                return valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject)) >= valueDate_yyyyMMdd(getMainValue());
             }
         };
         isc.setMainValue(value);
@@ -81,7 +81,7 @@ public class FilterDateBuilder implements FilterBuilder {
         DateSearchCriteria isc = new DateSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return valueDate_yyyyMMdd(getMainValue()) < valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject));
+                return valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject)) < valueDate_yyyyMMdd(getMainValue());
             }
         };
         isc.setMainValue(value);
@@ -93,7 +93,7 @@ public class FilterDateBuilder implements FilterBuilder {
         DateSearchCriteria isc = new DateSearchCriteria() {
             @Override
             public boolean check(JsonObject jsonObject) {
-                return valueDate_yyyyMMdd(getMainValue()) <= valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject));
+                return valueDate_yyyyMMdd(getDate(catFilter.getPropertyName(), jsonObject)) <= valueDate_yyyyMMdd(getMainValue());
             }
         };
         isc.setMainValue(value);

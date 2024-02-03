@@ -6,6 +6,7 @@ import com.google.gson.reflect.TypeToken;
 import com.jmunoz.persistence.catfiledb.example.Car;
 import com.jmunoz.persistence.catfiledb.search.CatFilter;
 import com.jmunoz.persistence.catfiledb.search.builder.FilterIntegerBuilder;
+import com.jmunoz.persistence.catfiledb.search.builder.FilterStringBuilder;
 import org.junit.Test;
 
 import java.io.File;
@@ -104,7 +105,8 @@ public class AppTest {
             CatFileDBInstance db = prepareInstanceDB();
             db.initDB();
             List<CatFilter> filters = new ArrayList<>();
-            filters.add(new FilterIntegerBuilder("year").equalTo(1998).build());
+//            filters.add(new FilterIntegerBuilder("year").equalTo(1998).build());
+            filters.add(new FilterStringBuilder("mark").startsWith("TOYO").build());
             List<JsonObject> list = db.filterJsonObjects("car", filters);
             System.out.println(list);
             result = true;
