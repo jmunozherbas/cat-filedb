@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
+import com.jmunoz.persistence.catfiledb.search.CatDeletedObject;
 import com.jmunoz.persistence.catfiledb.search.CatFilter;
 import com.jmunoz.persistence.catfiledb.search.criteria.CatSearchCriteria;
 
@@ -17,8 +18,8 @@ import java.util.stream.Collectors;
 public abstract class CatFileDBInstance {
 
     private static HashMap<String, CatClass> HM_CLASSES = null;
-    private static HashMap<String, List<JsonObject>> HM_DATA_CLASS = null;
-    private static HashMap<String, List<String>> HM_KEYS_DATA_CLASS = null;
+    private static HashMap<String, HashMap<String, JsonObject>> HM_DATA_CLASS = null;
+    //    private static HashMap<String, List<String>> HM_KEYS_DATA_CLASS = null;
     private static HashMap<String, Integer> HM_LAST_INDEX_CLASS = null;
     private static HashMap<String, Long> HM_LENGTH_BYTES_DATA_CLASS = null;
     private static HashMap<String, Long> HM_LENGTH_BYTES_DATA_DELETED_CLASS = null;
@@ -39,7 +40,7 @@ public abstract class CatFileDBInstance {
     private void initClasses() throws CatException {
         HM_CLASSES = new HashMap<>();
         HM_DATA_CLASS = new HashMap<>();
-        HM_KEYS_DATA_CLASS = new HashMap<>();
+//        HM_KEYS_DATA_CLASS = new HashMap<>();
         HM_LAST_INDEX_CLASS = new HashMap<>();
         HM_LENGTH_BYTES_DATA_CLASS = new HashMap<>();
         HM_LENGTH_BYTES_DATA_DELETED_CLASS = new HashMap<>();
@@ -86,25 +87,27 @@ public abstract class CatFileDBInstance {
         Type type = new TypeToken<ArrayList<Integer>>() {
         }.getType();
 
-        List<Integer> listIndexDeleted = (List<Integer>) new Gson().fromJson(contentDel, type);
+        List<CatDeletedObject> listDeletedObjects = (List<CatDeletedObject>) new Gson().fromJson(contentDel, type);
+        HashSet<Integer> setDeleted = new HashSet<>();
+        for (CatDeletedObject cdo : listDeletedObjects) {
+            setDeleted.add(cdo.getIndexFile());
+        }
         List<JsonObject> listObjects = stringContentAsListObjects(content, className);
         HM_LAST_INDEX_CLASS.put(className, listObjects.size());
 
-        List<JsonObject> resultData = new ArrayList<>();
-        List<String> keysData = new ArrayList<>();
+        HashMap<String, JsonObject> resultData = new HashMap<>();
         for (int i = 0; i < listObjects.size(); i++) {
-            if (!listIndexDeleted.contains(i)) {
+            if (!setDeleted.contains(i)) {
                 listObjects.get(i).addProperty("idxCat", i);
-                resultData.add(listObjects.get(i));
-                keysData.add(listObjects.get(i).get(HM_CLASSES.get(className).getFieldId()).getAsString());
+                resultData.put(listObjects.get(i).get(HM_CLASSES.get(className).getFieldId()).getAsString(), listObjects.get(i));
             }
         }
 
         listObjects.clear();
-        listIndexDeleted.clear();
+        setDeleted.clear();
+        listDeletedObjects.clear();
 
         HM_DATA_CLASS.put(className, resultData);
-        HM_KEYS_DATA_CLASS.put(className, keysData);
     }
 
     private void loadNewDataFromFile(String className) throws IOException {
@@ -117,8 +120,7 @@ public abstract class CatFileDBInstance {
             List<JsonObject> listObjects = stringContentAsListObjects(strNewContentData, className);
             for (int i = 0; i < listObjects.size(); i++) {
                 listObjects.get(i).addProperty("idxCat", HM_LAST_INDEX_CLASS.get(className) + i);
-                HM_DATA_CLASS.get(className).add(listObjects.get(i));
-                HM_KEYS_DATA_CLASS.get(className).add(listObjects.get(i).get(HM_CLASSES.get(className).getFieldId()).getAsString());
+                HM_DATA_CLASS.get(className).put(listObjects.get(i).get(HM_CLASSES.get(className).getFieldId()).getAsString(), listObjects.get(i));
             }
 
             HM_LAST_INDEX_CLASS.put(className, HM_LAST_INDEX_CLASS.get(className) + listObjects.size());
@@ -129,51 +131,17 @@ public abstract class CatFileDBInstance {
             byte[] readBytes = CatFileManager.readFileSection(_fileDel.getPath(), HM_LENGTH_BYTES_DATA_DELETED_CLASS.get(className), _fileDel.length());
             String strNewContentDel = "[" + new String(readBytes) + "]";
             HM_LENGTH_BYTES_DATA_DELETED_CLASS.put(className, _fileDel.length());
-            Type type = new TypeToken<ArrayList<Integer>>() {
+            Type type = new TypeToken<ArrayList<CatDeletedObject>>() {
             }.getType();
 
-            List<Integer> listIndexDeleted = (List<Integer>) new Gson().fromJson(strNewContentDel, type);
-            for (Integer indexToDelete : listIndexDeleted) {
-                int indexMen = getMemIndex(className, indexToDelete);
-                if (indexMen >= 0) {
-                    HM_DATA_CLASS.get(className).remove(indexMen);
-                    HM_KEYS_DATA_CLASS.get(className).remove(indexMen);
-                } else {
-                    System.out.println("Index can't be removed from list objects of class : " + className + " indexFile : " + indexToDelete);
+            List<CatDeletedObject> listDeletedObjects = new Gson().fromJson(strNewContentDel, type);
+
+            for (CatDeletedObject cdo : listDeletedObjects) {
+                JsonObject jsonObject = HM_DATA_CLASS.get(className).get(cdo.getKeyObject());
+                if (jsonObject != null && jsonObject.get("idxCat").getAsInt() == cdo.getIndexFile()) {
+                    HM_DATA_CLASS.get(className).remove(cdo.getKeyObject());
                 }
             }
-        }
-    }
-
-    private int getMemIndex(String className, int indexFile) {
-        return findListObject(className, indexFile, 0, HM_DATA_CLASS.get(className).size());
-    }
-
-    private int findListObject(String className, int valueIndexTofind, int iLeft, int iRight) {
-        if (HM_DATA_CLASS.get(className).subList(iLeft, iRight).size() == 1) {
-            if (HM_DATA_CLASS.get(className).get(iLeft).get("idxCat").getAsInt() == valueIndexTofind) {
-                return iLeft;
-            }
-        } else {
-            List<JsonObject> objectList = HM_DATA_CLASS.get(className).subList(iLeft, iRight);
-            int midIndex = midIndexList(objectList.size());
-            int midPositionValue = objectList.get(midIndex).get("idxCat").getAsInt();
-            if (midPositionValue == valueIndexTofind) {
-                return iLeft + midIndex;
-            } else if (midPositionValue < valueIndexTofind) {
-                return findListObject(className, valueIndexTofind, iLeft + midIndex, iRight);
-            } else {
-                return findListObject(className, valueIndexTofind, iLeft, iRight - midIndex);
-            }
-        }
-        return -1;
-    }
-
-    private int midIndexList(int size) {
-        if (size % 2 == 0) {
-            return size / 2;
-        } else {
-            return ((size + 1) / 2) - 1;
         }
     }
 
@@ -196,7 +164,7 @@ public abstract class CatFileDBInstance {
             throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object needs to be a primitive value (integer,string,long)  in class:" + className + " " + catClass.getFieldId());
         }
 
-        if (HM_KEYS_DATA_CLASS.get(className).contains(strIdObject)) {
+        if (HM_DATA_CLASS.get(className).containsKey(strIdObject)) {
             throw new CatException(CatFileDB.Exception.DB_UNIQUE_ID_VIOLATED, "Id object already exists, unique id violated " + className + " " + catClass.getFieldId() + " --> " + strIdObject);
         }
 
@@ -222,12 +190,12 @@ public abstract class CatFileDBInstance {
             throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object needs to be a primitive value (integer,string,long)  in class:" + className + " " + catClass.getFieldId());
         }
 
-        int indexMemoryObject = HM_KEYS_DATA_CLASS.get(className).indexOf(strIdObject);
-        if (indexMemoryObject < 0) {
+        JsonObject jo = HM_DATA_CLASS.get(className).get(strIdObject);
+        if (jo == null) {
             throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "IdObject not found class: " + className + " id : " + strIdObject);
         }
 
-        return indexMemoryObject;
+        return jo.get("idxCat").getAsInt();
     }
 
     private int validateToDelete(String strIdObject, String className) throws CatException {
@@ -239,12 +207,12 @@ public abstract class CatFileDBInstance {
         if (strIdObject.isEmpty()) {
             throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "Id object empty " + className + " " + catClass.getFieldId());
         }
-        int indexMemoryObject = HM_KEYS_DATA_CLASS.get(className).indexOf(strIdObject);
-        if (indexMemoryObject < 0) {
+        JsonObject jo = HM_DATA_CLASS.get(className).get(strIdObject);
+        if (jo == null) {
             throw new CatException(CatFileDB.Exception.DB_TRANSACTION, "IdObject not found class: " + className + " id : " + strIdObject);
         }
 
-        return indexMemoryObject;
+        return jo.get("idxCat").getAsInt();
     }
 
     private void removeNoPrimitiveValues(JsonObject jsonObject, String className) {
@@ -301,13 +269,11 @@ public abstract class CatFileDBInstance {
 
     public JsonObject findJsonById(String className, String idObject) throws CatException {
         updateClassDataFromFile(className);
-        int indexById = HM_KEYS_DATA_CLASS.get(className).indexOf(idObject);
-        if (indexById >= 0) {
-            return HM_DATA_CLASS.get(className).get(indexById);
-        } else {
+        JsonObject jo = HM_DATA_CLASS.get(className).get(idObject);
+        if (jo == null) {
             System.out.println("Object not found class: " + className + " id : " + idObject);
-            return null;
         }
+        return jo;
     }
 
     public List<Object> filterObjects(String className, List<CatFilter> catFilters) throws CatException {
@@ -334,7 +300,7 @@ public abstract class CatFileDBInstance {
             }
         };
 
-        List<JsonObject> filteredList = HM_DATA_CLASS.get(className)
+        List<JsonObject> filteredList = HM_DATA_CLASS.get(className).values()
                 .stream()
                 .filter(predicate)
                 .collect(Collectors.toList());
@@ -343,14 +309,13 @@ public abstract class CatFileDBInstance {
     }
 
     public List<JsonObject> listAllObjects(String className) {
-        return HM_DATA_CLASS.get(className);
+        return (List<JsonObject>) HM_DATA_CLASS.get(className).values();
     }
 
     public boolean deleteById(String strIdObject, String className) throws CatException {
         updateClassDataFromFile(className);
-        int indexMemoryObject = validateToDelete(strIdObject, className);
-        String indexRealObject = HM_DATA_CLASS.get(className).get(indexMemoryObject).get("idxCat").getAsString();
-        boolean result = CatFileManager.writeAppendContent(indexRealObject, getPathFileDeleteDataClass(className));
+        int indexFileObject = validateToDelete(strIdObject, className);
+        boolean result = CatFileManager.writeAppendContent(String.valueOf(indexFileObject), getPathFileDeleteDataClass(className));
         return result;
     }
 
@@ -361,10 +326,9 @@ public abstract class CatFileDBInstance {
 
     public boolean updateJsonObject(JsonObject jsonObject, String className) throws CatException {
         updateClassDataFromFile(className);
-        int indexMemoryObject = validateToUpdate(jsonObject, className);
+        int indexFileObject = validateToUpdate(jsonObject, className);
         removeNoPrimitiveValues(jsonObject, className);
-        String indexRealObject = HM_DATA_CLASS.get(className).get(indexMemoryObject).get("idxCat").getAsString();
-        boolean resultDelete = CatFileManager.writeAppendContent(indexRealObject, getPathFileDeleteDataClass(className));
+        boolean resultDelete = CatFileManager.writeAppendContent(String.valueOf(indexFileObject), getPathFileDeleteDataClass(className));
         if (resultDelete) {
             return CatFileManager.writeAppendContent(jsonObject.getAsString(), getPathFileDataClass(className));
         } else {
